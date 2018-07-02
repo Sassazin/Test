@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 
 
 /*****************************************************************************
@@ -83,7 +84,6 @@ int main (int argc, char** argv)
 	int nproc;
 	int pid;
 	int number;
-	int pipeno;
 	
 	int i;
 	
@@ -91,14 +91,20 @@ int main (int argc, char** argv)
 	
 	FILE* logf;
 	
-
+	printf("Initializing...\n");
+	
 	sscanf(argv[1], "%d", &nproc);
+	
+	printf("%d processes found\n",nproc);
+	
 	for ( i = 0; i < nproc; i++ )
 		pipe( pipefds[i] );
 	
 	
 	for ( i = 0; i < nproc; i++ )
 	{
+		printf("Fork %d\n",i);
+		
 		pid = fork();
 		
 		if ( pid == 0 )
@@ -113,12 +119,25 @@ int main (int argc, char** argv)
 	
 	if ( pid == 0 )
 	{
+		
+		
 		while (1)
 		{
-			number = rand();
+			struct timespec ts;
+			
+			if (timespec_get(&ts, TIME_UTC) == 0) {
+				printf("Time err");
+				return -1;
+			}
+			
+			srandom(ts.tv_nsec ^ ts.tv_sec);
+			number = random();
+					
 			
 			if ( isprime(number) )
 			{
+				printf("Prime number generated! %d\n",number);
+				
 				msg.pid = getpid();
 				msg.number = number;
 				
@@ -147,6 +166,9 @@ int main (int argc, char** argv)
 					nproc--;
 				}
 			}
+			
+			if ( nproc == 0 )
+				break;
 		}
 		
 		fclose(logf);
