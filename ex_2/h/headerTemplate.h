@@ -1,15 +1,13 @@
 /***************************** FILE HEADER *********************************/
 /*!
-*  \file      headerTemplate.h
+*  \file      NAME
 *
-*  \brief     Todo: Brief description of this file
+*  \brief     Parenting Process Exercise
 *
-*  \note      
+*  \author    Octav Teodorescu
+*  \copyright 2018 Luxoft Romania
 *
-*  \author    Bob Builder
-*  \copyright 2012 Hirschmann Automation & Control GmbH
-*
-*  \version 1 Created on: 20.04.2012
+*  \version 1 Created on: 02.07.2018
 *
 *//**************************** FILE HEADER *********************************/
 

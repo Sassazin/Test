@@ -1,5 +1,6 @@
-all : 
-	@echo "make: built targets of `pwd`"
+IDIR =./h
+CC=gcc
+CFLAGS=-I$(IDIR)
 
-clean :
-	@echo "make: removing targets and objects of `pwd`"
+all : ex2_main.c
+    $(CC) -o ../bin/ex2.exe ./src/ex2_main.c
