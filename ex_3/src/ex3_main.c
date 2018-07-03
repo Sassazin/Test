@@ -20,7 +20,12 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <sys/types.h>
+#include <signal.h>
+#include <fcntl.h>
 #include <semaphore.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <time.h>
 
 
 /*****************************************************************************
@@ -34,15 +39,16 @@
 #define RW_PERM_ALL		0666
 
 
-
 /*****************************************************************************
  * Globals
  *****************************************************************************/
- 
+
+
 /*****************************************************************************
  * Locals
  *****************************************************************************/
- 
+
+
 /*****************************************************************************
  *  \fn                 functionname
  *************************************************************************//**
@@ -54,10 +60,26 @@
  *  \author             ...
  *  \date               YYYY-MM-DD
  ****************************************************************************/
-int ex3_init ( int* pids, int* fd )
+
+
+int main ()
 {
-    *fd = open( SHDMEM_FILEPATH, O_WRONLY | O_CREAT, RW_PERM_ALL );
-    if ( (*fd) == -1) {
+	int	pids[NB_PROCS];
+	u_int8_t data[MAX_DATA_SIZE];
+	int fd;
+	
+	sem_t* data_sem;
+	
+	int i;
+	const char dummyargs[] = "whatever";
+	
+	data_sem = sem_open("/OIT_ex3_data_sem", O_CREAT, 0666, 1);
+	sem_open("/OIT_ex3_rdmutex_sem",	O_CREAT, 0666, 1);
+	sem_open("/OIT_ex3_wrpriority_sem", O_CREAT, 0666, 1);
+	
+	
+    fd = open( SHDMEM_FILEPATH, O_WRONLY | O_CREAT, RW_PERM_ALL );
+    if ( (fd) == -1) {
     	return -1;
     }
 
@@ -70,32 +92,27 @@ int ex3_init ( int* pids, int* fd )
 				 
 		if ( pids[i] == 0 )
 		{
-			execl();
+			execl("./ex3_child.exe",dummyargs);
 		}
 	}
 	
-	return 0;
-}
-
-
-int main ()
-{
-	int	pids[NB_PROCS];
-	uint8_t data[MAX_DATA_SIZE];
-	int fd;
 	
-	sem_t data_sem;
-	sem_t rdmutex_sem;
-	sem_t wrpriority_sem;
-	
-	int i;
-	
-	sem_open("/OIT_ex3_data_sem", 	 	O_CREAT, 0666, 1);
-	sem_open("/OIT_ex3_rdmutex_sem",	O_CREAT, 0666, 1);
-	sem_open("/OIT_ex3_wrpriority_sem", O_CREAT, 0666, 1);
-	
-	ex3_init(pids,&fd);
-	
-	
+	while (1)
+	{
+		sleep(1);
+		
+		sem_wait(data_sem);
+		
+		for ( i = 0; i < MAX_DATA_SIZE; i++ )
+		{
+			srandom(time(NULL));
+			data[i] = (u_int8_t) random();
+		}
+		
+		for ( i = 0; i < NB_PROCS; i++ )
+			kill ( pids[i], SIGUSR1 );
+		
+		sem_post(data_sem);
+	}
 
 }
