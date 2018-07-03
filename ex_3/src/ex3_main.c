@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <sys/types.h>
+#include <semaphore.h>
 
 
 /*****************************************************************************
@@ -29,6 +30,7 @@
 #define NB_PROCS		3
 
 #define SHDMEM_FILEPATH	"/tmp/ex3/mmapped.bin"
+#define CHILD_FILEPATH	"./ex3_child.exe"
 #define RW_PERM_ALL		0666
 
 
@@ -52,19 +54,10 @@
  *  \author             ...
  *  \date               YYYY-MM-DD
  ****************************************************************************/
-
-
-int main ()
+int ex3_init ( int* pids, int* fd )
 {
-	int	pids[NB_PROCS];
-	uint8_t data[MAX_DATA_SIZE];
-	int fd;
-	
-	int i;
-	
-	
-    fd = open( SHDMEM_FILEPATH, O_WRONLY | O_CREATE, RW_PERM_ALL );
-    if (fd == -1) {
+    *fd = open( SHDMEM_FILEPATH, O_WRONLY | O_CREAT, RW_PERM_ALL );
+    if ( (*fd) == -1) {
     	return -1;
     }
 
@@ -80,8 +73,29 @@ int main ()
 			execl();
 		}
 	}
-		
+	
+	return 0;
+}
 
+
+int main ()
+{
+	int	pids[NB_PROCS];
+	uint8_t data[MAX_DATA_SIZE];
+	int fd;
+	
+	sem_t data_sem;
+	sem_t rdmutex_sem;
+	sem_t wrpriority_sem;
+	
+	int i;
+	
+	sem_open("/OIT_ex3_data_sem", 	 	O_CREAT, 0666, 1);
+	sem_open("/OIT_ex3_rdmutex_sem",	O_CREAT, 0666, 1);
+	sem_open("/OIT_ex3_wrpriority_sem", O_CREAT, 0666, 1);
+	
+	ex3_init(pids,&fd);
 	
 	
+
 }
