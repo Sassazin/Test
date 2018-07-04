@@ -36,6 +36,9 @@
 #define GEN_TIME	100
 #define GEN_TIME_S	GEN_TIME/1000
 
+#define MAX_NUMBERS	1000
+#define MIN_NUMBERS	100
+
 #define FATAL_ERROR(err) perror(err);\
 	return -1
 
@@ -59,7 +62,7 @@ int readercount = 0;
 typedef struct shared_data
 {
 	 int N;
-	 int numbers[1000];
+	 int numbers[MAX_NUMBERS];
 	 
 }shared_data_t;
 
@@ -78,14 +81,22 @@ int main ()
 	
 	int i;
 	
+	
 	syncrw_sem		= sem_open("/OIT_ex1_syncrw_sem",	 O_CREAT, O_RDWR, 0666);
 	datamutex_sem 	= sem_open("/OIT_ex1_datamutex_sem", O_CREAT, O_RDWR, 0666);
-	pthread_mutex_init(&rdmutex, NULL);
+	if ( pthread_mutex_init(&rdmutex, NULL) != 0 ) FATAL_ERROR("Error initializing rdmutex");
+	
+	if ( syncrw_sem 	== SEM_FAILED ) FATAL_ERROR("Error opening syncrw_sem");
+	if ( datamutex_sem  == SEM_FAILED ) FATAL_ERROR("Error opening datamutex_sem");
 
 	
+	if ( !pthread_create( &thd, NULL, &generate_numbers, &data) )
+		FATAL_ERROR("Failed to create thread (generator)");
 	
 	for ( i = 0; i < NTHREADS; i++ )
-		pthread_create( &thd, NULL, &read_numbers, &data);
+		if ( !pthread_create( &thd, NULL, &read_numbers, &data) )
+			FATAL_ERROR("Failed to create thread (read)");
+	
 	
 	return 0;
 }
@@ -129,32 +140,26 @@ void* read_numbers (void* arg)
 	 }
  }
 
+
 void* generate_numbers (void* arg)
 {
 	shared_data_t* data = (shared_data_t*)(arg);
 	int i;
 	
-	
+	srand(time(NULL));
 	while (1)
 	{
 		sleep(GEN_TIME_S);
 		
 		sem_wait(syncrw_sem);
-		
 		sem_wait(datamutex_sem);
 		
-		srandom(time(NULL));
-		data->N = random()%1000;
-		
+		data->N = rand() % (MAX_NUMBERS - MIN_NUMBERS) + MIN_NUMBERS;
 		
 		for ( i = 0; i < data->N; i++ )
-		{	
-			srandom(time(NULL));
-			data->numbers[i] = random();
-		}
+			data->numbers[i] = rand();
 		
 		sem_post(datamutex_sem);
-		
 		sem_post(syncrw_sem);
 	}
 }
