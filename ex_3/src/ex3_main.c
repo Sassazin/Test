@@ -1,15 +1,13 @@
 /***************************** FILE HEADER *********************************/
 /*!
-*  \file      sourceTemplate.c
+*  \file      ex3_main.c
 *
-*  \brief     Todo: Brief description of this file
+*  \brief     Shared resource exercise; parent process source.
 *
-*  \note      
+*  \author    Octav Teodorescu
+*  \copyright 2018 Luxoft Romania
 *
-*  \author    Bob Builder
-*  \copyright 2012 Hirschmann Automation & Control GmbH
-*
-*  \version 1 Created on: 20.04.2012
+*  \version 1 Created on: 03/07/2018
 *
 *//**************************** FILE HEADER *********************************/
 
@@ -36,8 +34,11 @@
 
 #define SHDMEM_FILEPATH	"/tmp/ex3/mmapped.bin"
 #define CHILD_FILEPATH	"./ex3_child.exe"
+
 #define RW_PERM_ALL		0666
 
+#define FATAL_ERROR(err) perror(err);\
+	return -1
 
 /*****************************************************************************
  * Globals
@@ -49,41 +50,30 @@
  *****************************************************************************/
 
 
-/*****************************************************************************
- *  \fn                 functionname
- *************************************************************************//**
- *  \brief              This function ...
- *  \note               -
- *  \param[in]          ...
- *  \param[out]         ...
- *  \return             ...
- *  \author             ...
- *  \date               YYYY-MM-DD
- ****************************************************************************/
 
-
-int main ()
+int main (int argc, char* argv[])
 {
 	int	pids[NB_PROCS];
-	u_int8_t data[MAX_DATA_SIZE];
 	int fd;
+
+	int i;
 	
+	u_int8_t data[MAX_DATA_SIZE];
 	sem_t* data_sem;
 	
-	int i;
-	const char dummyargs[] = "whatever";
 	
-	data_sem = sem_open("/OIT_ex3_data_sem", O_CREAT, 0666, 1);
-	sem_open("/OIT_ex3_rdmutex_sem",	O_CREAT, 0666, 1);
-	sem_open("/OIT_ex3_wrpriority_sem", O_CREAT, 0666, 1);
 	
+	data_sem = sem_open("/OIT_ex3_data_sem", O_CREAT, 0700, 1);
+	if ( data_sem == SEM_FAILED )
+		FATAL_ERROR("Error opening semaphore [data_sem]");
 	
     fd = open( SHDMEM_FILEPATH, O_WRONLY | O_CREAT, RW_PERM_ALL );
-    if ( (fd) == -1) {
-    	return -1;
-    }
+    if ( fd == -1)
+    	FATAL_ERROR("Error opening shdmem");
 
-	mmap( NULL, MAX_DATA_SIZE, PROT_WRITE, MAP_SHARED, fd, 0 );
+
+	if ( mmap( NULL, MAX_DATA_SIZE, PROT_WRITE, MAP_SHARED, fd, 0 ) == MAP_FAILED )
+		FATAL_ERROR("Error mmap");
 	
 	
 	for ( i = 0; i < NB_PROCS; i++ )
@@ -91,9 +81,8 @@ int main ()
 		pids[i] = fork();
 				 
 		if ( pids[i] == 0 )
-		{
-			execl("./ex3_child.exe",dummyargs);
-		}
+			if ( execvp("./ex3_child.exe",argv) == -1 )
+				FATAL_ERROR("Error execvp");
 	}
 	
 	
@@ -101,18 +90,19 @@ int main ()
 	{
 		sleep(1);
 		
-		sem_wait(data_sem);
-		
 		for ( i = 0; i < MAX_DATA_SIZE; i++ )
 		{
 			srandom(time(NULL));
 			data[i] = (u_int8_t) random();
 		}
 		
+		sem_wait(data_sem);
+		write(fd, data, MAX_DATA_SIZE);	
+		sem_post(data_sem);
+		
 		for ( i = 0; i < NB_PROCS; i++ )
 			kill ( pids[i], SIGUSR1 );
-		
-		sem_post(data_sem);
 	}
 
+	return 0;
 }
