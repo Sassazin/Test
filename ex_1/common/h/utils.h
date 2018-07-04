@@ -15,7 +15,7 @@
 /*****************************************************************************
  * Defines
  *****************************************************************************/
-#ifndef FATAL_ERROR(err)
+#ifndef FATAL_ERROR
 	#define FATAL_ERROR(err) perror(err);\
 		return -1
 #endif
@@ -38,4 +38,4 @@
 int isprime (int);
 
 
-#endif UTILS_H_
+#endif //UTILS_H_

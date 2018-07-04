@@ -23,9 +23,11 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <time.h>
-#include <sys/types.h>
+#include <sys/syscall.h>
 #include <semaphore.h>
+#include <fcntl.h>
 
+#include "../h/ex1_main.h"
 
 /*****************************************************************************
  * Defines
@@ -47,9 +49,10 @@
 /*****************************************************************************
  * Locals
  *****************************************************************************/
-pthread_mutex_t datamutex;
-sem_t rdmutex_sem;
-sem_t syncrw_sem;
+
+pthread_mutex_t rdmutex;
+sem_t* syncrw_sem;
+sem_t* datamutex_sem;
 
 int readercount = 0;
 
@@ -64,9 +67,8 @@ typedef struct shared_data
 /*****************************************************************************
  * Functions
  *****************************************************************************/
-void isprime (int);
-void read_numbers(void*);
-void generate_numbers(void*);
+void* read_numbers(void*);
+void* generate_numbers(void*);
 
 
 int main ()
@@ -76,9 +78,9 @@ int main ()
 	
 	int i;
 	
-	syncrw_sem	= sem_open("/OIT_ex1_syncrw_sem",  O_CREAT, O_RDWR, 0666);
-	rdmutex_sem = sem_open("/OIT_ex1_rdmutex_sem", O_CREAT, O_RDWR, 0666);
-	pthread_mutex_init(datamutex, NULL);
+	syncrw_sem		= sem_open("/OIT_ex1_syncrw_sem",	 O_CREAT, O_RDWR, 0666);
+	datamutex_sem 	= sem_open("/OIT_ex1_datamutex_sem", O_CREAT, O_RDWR, 0666);
+	pthread_mutex_init(&rdmutex, NULL);
 
 	
 	
@@ -89,7 +91,7 @@ int main ()
 }
 
 
-void read_numbers (void* arg)
+void* read_numbers (void* arg)
  {
 	 shared_data_t* data = (shared_data_t*)(arg);
 	 int number;	 	 
@@ -99,35 +101,35 @@ void read_numbers (void* arg)
 	 {
 		 sem_wait(syncrw_sem);
 		 
-		 pthread_mutex_lock(rdmutex_sem);
+		 pthread_mutex_lock(&rdmutex);
 		 
 		 readercount++;
 		 if ( readercount == 1 )
-			 sem_wait(datamutex);
+			 sem_wait(datamutex_sem);
 		 
-		 pthread_mutex_unlock(rdmutex_sem);
+		 pthread_mutex_unlock(&rdmutex);
 		 
 		 sem_post(syncrw_sem);
 		 
-		 number = data.numbers[data->N-1];
-		 N--;
+		 number = data->numbers[data->N-1];
+		 data->N--;
 		 
-		 pthread_mutex_lock(rdmutex_sem);
+		 pthread_mutex_lock(&rdmutex);
 		 
 		 readercount--;
 		 if ( readercount == 0 )
-			 sem_post(datamutex);
+			 sem_post(datamutex_sem);
 		 
-		 pthread_mutex_unlock(rdmutex_sem);
+		 pthread_mutex_unlock(&rdmutex);
 		 
 		 if ( isprime(number) )
-			 fprintf(stdout, "Thread %d: number %d, prime: %s\n", gettid(), number, "YES" );
+			 fprintf(stdout, "Thread %ld: number %d, prime: %s\n", syscall(SYS_gettid), number, "YES" );
 		 else
-			 fprintf(stdout, "Thread %d: number %d, prime: %s\n", gettid(), number, "NO" );
+			 fprintf(stdout, "Thread %ld: number %d, prime: %s\n", syscall(SYS_gettid), number, "NO" );
 	 }
  }
 
-void generate_numbers (void* arg)
+void* generate_numbers (void* arg)
 {
 	shared_data_t* data = (shared_data_t*)(arg);
 	int i;
@@ -139,19 +141,19 @@ void generate_numbers (void* arg)
 		
 		sem_wait(syncrw_sem);
 		
-		pthread_mutex_lock(datamutex);
+		sem_wait(datamutex_sem);
 		
 		srandom(time(NULL));
 		data->N = random()%1000;
 		
 		
-		for ( i = 0; i < N; i++ )
+		for ( i = 0; i < data->N; i++ )
 		{	
 			srandom(time(NULL));
 			data->numbers[i] = random();
 		}
 		
-		pthread_mutex_unlock(datamutex);
+		sem_post(datamutex_sem);
 		
 		sem_post(syncrw_sem);
 	}
