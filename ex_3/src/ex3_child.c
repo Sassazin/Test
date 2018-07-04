@@ -23,6 +23,8 @@
 #include <unistd.h>
 #include <semaphore.h>
 
+#include "../h/coreutils.h"
+
 
 /*****************************************************************************
  * Defines
@@ -32,8 +34,6 @@
 
 #define SHDMEM_FILEPATH	"/tmp/ex3/mmapped.bin"
 
-#define FATAL_ERROR(err) perror(err);\
-	return -1
 
 /*****************************************************************************
  * Globals

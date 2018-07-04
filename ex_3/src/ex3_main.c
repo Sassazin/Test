@@ -25,6 +25,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "../h/coreutils.h"
+
 
 /*****************************************************************************
  * Defines
@@ -35,10 +37,8 @@
 #define SHDMEM_FILEPATH	"/tmp/ex3/mmapped.bin"
 #define CHILD_FILEPATH	"./ex3_child.exe"
 
-#define RW_PERM_ALL		0666
+#define RW_PERM_ALL		0777
 
-#define FATAL_ERROR(err) perror(err);\
-	return -1
 
 /*****************************************************************************
  * Globals
@@ -60,14 +60,15 @@ int main (int argc, char* argv[])
 	
 	u_int8_t data[MAX_DATA_SIZE];
 	sem_t* data_sem;
+
 	
-	
+	DBGPRINT("Initializing...\n");
 	
 	data_sem = sem_open("/OIT_ex3_data_sem", O_CREAT, 0700, 1);
 	if ( data_sem == SEM_FAILED )
 		FATAL_ERROR("Error opening semaphore [data_sem]");
 	
-    fd = open( SHDMEM_FILEPATH, O_WRONLY | O_CREAT, RW_PERM_ALL );
+    fd = open( SHDMEM_FILEPATH, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG | S_IRWXO );
     if ( fd == -1)
     	FATAL_ERROR("Error opening shdmem");
 
@@ -75,6 +76,8 @@ int main (int argc, char* argv[])
 	if ( mmap( NULL, MAX_DATA_SIZE, PROT_WRITE, MAP_SHARED, fd, 0 ) == MAP_FAILED )
 		FATAL_ERROR("Error mmap");
 	
+	
+	DBGPRINT("Spawning children...\n");
 	
 	for ( i = 0; i < NB_PROCS; i++ )
 	{
@@ -85,10 +88,15 @@ int main (int argc, char* argv[])
 				FATAL_ERROR("Error execvp");
 	}
 	
+	DBGPRINT("Forks successful. Starting core functionality...\n");
 	
 	while (1)
 	{
+		DBGPRINT("Going to sleep.\n");
+		
 		sleep(1);
+		
+		DBGPRINT("Wake up.\nGenerating random data...\n");
 		
 		for ( i = 0; i < MAX_DATA_SIZE; i++ )
 		{
@@ -96,9 +104,14 @@ int main (int argc, char* argv[])
 			data[i] = (u_int8_t) random();
 		}
 		
+		DBGPRINT("Waiting for access...\n");
+		
 		sem_wait(data_sem);
+		DBGPRINT("Writing data...\n");
 		write(fd, data, MAX_DATA_SIZE);	
 		sem_post(data_sem);
+		
+		DBGPRINT("Signaling children...\n");
 		
 		for ( i = 0; i < NB_PROCS; i++ )
 			kill ( pids[i], SIGUSR1 );
