@@ -65,9 +65,11 @@ int main (int argc, char* argv[])
 	
 	DBGPRINT("Creating own logfile...");
 	
+	/*
 	sprintf(logfile,"./logs/parent.log");
 	if ( freopen(logfile, "w", stdout) == NULL )
 		FATAL_ERROR("Error opening/creating logfile (parent)");
+	*/
 	
 	DBGPRINT("Initializing...\n");	
 	

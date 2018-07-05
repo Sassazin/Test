@@ -41,7 +41,7 @@
  *****************************************************************************/
  
 
-int main ()
+int main (int argc, char** argv)
 {
 	int sig;
 	int fd;
@@ -60,10 +60,11 @@ int main ()
 	
 	readercount = 0;
 	
+	/*
 	sprintf(logfile,"./logs/%d.log",getpid());
 	if ( freopen(logfile, "wt", stdout) == NULL )
 		FATAL_ERROR("Error opening/creating logfile (child)");
-	
+	*/
 	
 	fd = open(SHDMEM_FILEPATH, O_RDONLY);
 	if ( fd == -1 )
@@ -76,48 +77,56 @@ int main ()
 	sigaddset(&set, SIGUSR1);
 	sigprocmask(SIG_BLOCK, &set, NULL);
 	
-	data_sem		= 	sem_open("/OIT_ex3_data_sem"		, O_CREAT, SEM_PERM, 1);
-	rdmutex_sem		= 	sem_open("/OIT_ex3_rdmutex_sem"		, O_CREAT, SEM_PERM, 1);
-	wrpriority_sem 	= 	sem_open("/OIT_ex3_wrpriority_sem"	, O_CREAT, SEM_PERM, 1);
+	data_sem		= 	sem_open(SEM_FILE_DATA		, O_CREAT, SEM_PERM, 1);
+	rdmutex_sem		= 	sem_open(SEM_FILE_RDMUTEX	, O_CREAT, SEM_PERM, 1);
+	wrpriority_sem 	= 	sem_open(SEM_FILE_WRPRIORITY, O_CREAT, SEM_PERM, 1);
 
 	if ( data_sem 		== SEM_FAILED )	FATAL_ERROR("Error opening semaphore [data_sem] (child)");
 	if ( rdmutex_sem	== SEM_FAILED )	FATAL_ERROR("Error opening semaphore [rdmutex_sem] (child)");
 	if ( wrpriority_sem == SEM_FAILED )	FATAL_ERROR("Error opening semaphore [wrpriority_sem] (child)");
 
-	DBGPRINT("Starting main functionality.\n");
-	
 	
 	while (1)
 	{
-		DBGPRINT("Waiting for signal...");
+		DBGPRINT("Waiting for signal...\n");
 		
-		sigprocmask(SIG_UNBLOCK, &set, NULL);
+		//sigprocmask(SIG_UNBLOCK, &set, NULL);
 		if ( sigwait(&set,&sig) > 0 )	FATAL_ERROR("sigwait error");
-		sigprocmask(SIG_BLOCK, &set, NULL);
+		//sigprocmask(SIG_BLOCK, &set, NULL);
 		
-		DBGPRINT ("Signal received. Waiting for access...");
+		DBGPRINT ("Signal received. Waiting for access...\n");
+		
+		sem_wait(wrpriority_sem);
+		
+		DBGPRINT("Accessing entry zone...\n");
 		
 		sem_wait(rdmutex_sem);
-		sem_wait(wrpriority_sem);
-	
+		DBGPRINT("In entry zone...\n");
 		readercount++;
+		sem_post(rdmutex_sem);
+		
 		if ( readercount == 1 )
 			sem_wait(data_sem);
 		
+		DBGPRINT("Exiting entry zone...\n");
 		sem_post(wrpriority_sem);
-		sem_post(rdmutex_sem);
 		
-		DBGPRINT("Reading data...");
+		
+		DBGPRINT("Reading data...\n");
 		
 		read(fd, data, MAX_DATA_SIZE);
 		
+		DBGPRINT("Accessing exit zone...\n");
 		sem_wait(rdmutex_sem);
+		DBGPRINT("In exit zone...\n");
 		readercount--;
+		sem_post(rdmutex_sem);
 		if ( readercount == 0 )
 			sem_post(data_sem);
-		sem_post(rdmutex_sem);
+		
 		
 		fwrite(data, sizeof(u_int8_t), MAX_DATA_SIZE, stdout);
+		DBGPRINT("Done.\n");
 	}
 	
 	return 0;
