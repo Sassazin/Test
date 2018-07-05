@@ -31,13 +31,10 @@
 /*****************************************************************************
  * Defines
  *****************************************************************************/
-#define MAX_DATA_SIZE	100
 #define NB_PROCS		3
+#define CHILD_FILEPATH		"./ex3_child.exe"
 
-#define SHDMEM_FILEPATH	"/tmp/ex3/mmapped.bin"
-#define CHILD_FILEPATH	"./ex3_child.exe"
-
-#define RW_PERM_ALL		0777
+#define SEM_PERM		0777
 
 
 /*****************************************************************************
@@ -60,13 +57,37 @@ int main (int argc, char* argv[])
 	
 	u_int8_t data[MAX_DATA_SIZE];
 	sem_t* data_sem;
+	sem_t* wrpriority_sem;
+	sem_t* rdmutex_sem;
 
 	
 	DBGPRINT("Initializing...\n");
 	
-	data_sem = sem_open("/OIT_ex3_data_sem", O_CREAT, 0700, 1);
+	if ( sem_unlink(SEM_FILE_DATA) == -1 ) 
+		if ( errno != ENOENT )
+			FATAL_ERROR("Error cleaning semaphore [data_sem]");
+	
+	if ( sem_unlink(SEM_FILE_WRPRIORITY) == -1 ) 
+		if ( errno != ENOENT )
+			FATAL_ERROR("Error cleaning semaphore [wrpriority_sem]");
+	
+	if ( sem_unlink(SEM_FILE_RDMUTEX) == -1 ) 
+		if ( errno != ENOENT )
+			FATAL_ERROR("Error cleaning semaphore [rdmutex_sem]");
+	
+	data_sem = sem_open(SEM_FILE_DATA, O_EXCL | O_CREAT, SEM_PERM, 1);
 	if ( data_sem == SEM_FAILED )
 		FATAL_ERROR("Error opening semaphore [data_sem]");
+	
+	wrpriority_sem = sem_open(SEM_FILE_WRPRIORITY, O_EXCL | O_CREAT, SEM_PERM, 1);
+	if ( wrpriority_sem == SEM_FAILED )
+		FATAL_ERROR("Error opening semaphore [wrpriority_sem]");
+	
+	rdmutex_sem	= sem_open(SEM_FILE_RDMUTEX, O_EXCL | O_CREAT, SEM_PERM, 1);
+	if ( rdmutex_sem == SEM_FAILED )
+		FATAL_ERROR("Error opening semaphore [rdmutex_sem]");
+	
+	sem_close(rdmutex_sem);
 	
     fd = open( SHDMEM_FILEPATH, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG | S_IRWXO );
     if ( fd == -1)
@@ -88,31 +109,33 @@ int main (int argc, char* argv[])
 				FATAL_ERROR("Error execvp");
 	}
 	
+	
 	DBGPRINT("Forks successful. Starting core functionality...\n");
 	
 	while (1)
 	{
 		DBGPRINT("Going to sleep.\n");
-		
 		sleep(1);
 		
 		DBGPRINT("Wake up.\nGenerating random data...\n");
-		
 		for ( i = 0; i < MAX_DATA_SIZE; i++ )
 		{
 			srandom(time(NULL));
 			data[i] = (u_int8_t) random();
 		}
 		
+		
 		DBGPRINT("Waiting for access...\n");
+		sem_wait(wrpriority_sem);
 		
 		sem_wait(data_sem);
 		DBGPRINT("Writing data...\n");
 		write(fd, data, MAX_DATA_SIZE);	
 		sem_post(data_sem);
 		
-		DBGPRINT("Signaling children...\n");
+		sem_post(wrpriority_sem);
 		
+		DBGPRINT("Signaling children...\n");
 		for ( i = 0; i < NB_PROCS; i++ )
 			kill ( pids[i], SIGUSR1 );
 	}

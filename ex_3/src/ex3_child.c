@@ -29,10 +29,7 @@
 /*****************************************************************************
  * Defines
  *****************************************************************************/
-#define MAX_DATA_SIZE	100
-#define RW_PERM_ALL		0666
-
-#define SHDMEM_FILEPATH	"/tmp/ex3/mmapped.bin"
+#define SEM_PERM		0777
 
 
 /*****************************************************************************
@@ -58,13 +55,20 @@ int main ()
 	
 	sigset_t set;
 	
+	char logfile[32];
+	
+	
+	DBGPRINT("Initializing...\n");
 	
 	readercount = 0;
+	
+	sprintf(logfile,"./logs/%d.log",getpid());
+	if ( freopen(logfile, "w", stdout) == NULL )
+		FATAL_ERROR("Error opening/creating logfile");
 	
 	fd = open(SHDMEM_FILEPATH, O_RDONLY);
 	if ( fd == -1 )
 		FATAL_ERROR("Error opening shmem (child)");
-
 	
 	mmap( NULL, MAX_DATA_SIZE, PROT_READ, MAP_SHARED, fd, 0 );
 	
@@ -72,14 +76,16 @@ int main ()
 	sigaddset(&set, SIGUSR1);
 	sigprocmask(SIG_BLOCK, &set, NULL);
 	
-	data_sem		= 	sem_open("/OIT_ex3_data_sem"		,0666);
-	rdmutex_sem		= 	sem_open("/OIT_ex3_rdmutex_sem"		,0666);
-	wrpriority_sem 	= 	sem_open("/OIT_ex3_wrpriority_sem"	,0666);
+	data_sem		= 	sem_open("/OIT_ex3_data_sem"		, O_CREAT, SEM_PERM, 1);
+	rdmutex_sem		= 	sem_open("/OIT_ex3_rdmutex_sem"		, O_CREAT, SEM_PERM, 1);
+	wrpriority_sem 	= 	sem_open("/OIT_ex3_wrpriority_sem"	, O_CREAT, SEM_PERM, 1);
 
 	if ( data_sem 		== SEM_FAILED )	FATAL_ERROR("Error opening semaphore [data_sem] (child)");
 	if ( rdmutex_sem	== SEM_FAILED )	FATAL_ERROR("Error opening semaphore [rdmutex_sem] (child)");
 	if ( wrpriority_sem == SEM_FAILED )	FATAL_ERROR("Error opening semaphore [wrpriority_sem] (child)");
 	
+	
+	DBGPRINT("Starting main functionality.\n")
 	
 	while (1)
 	{
@@ -89,7 +95,6 @@ int main ()
 		
 		
 		sem_wait(rdmutex_sem);
-		
 		sem_wait(wrpriority_sem);
 	
 		readercount++;
@@ -97,18 +102,19 @@ int main ()
 			sem_wait(data_sem);
 		
 		sem_post(wrpriority_sem);
-		
 		sem_post(rdmutex_sem);
-		read(fd, data, MAX_DATA_SIZE);
-		sem_wait(rdmutex_sem);
 		
+		read(fd, data, MAX_DATA_SIZE);
+		
+		sem_wait(rdmutex_sem);
 		readercount--;
 		if ( readercount == 0 )
 			sem_post(data_sem);
-		
 		sem_post(rdmutex_sem);
 		
+		DBGPRINT("DATA:: ");
 		fwrite(data, sizeof(u_int8_t), MAX_DATA_SIZE, stdout);
+		DBGPRINT(" ::END\n");
 	}
 	
 	return 0;
