@@ -1,15 +1,13 @@
 /***************************** FILE HEADER *********************************/
 /*!
-*  \file      coreutils.h
+*  \file      ex3_child.c
 *
-*  \brief     Todo: Brief description of this file
+*  \brief     Shared resource exercise. Common definitons and includes
 *
-*  \note      
+*  \author    Octav Teodorescu
+*  \copyright 2018 Luxoft Romania
 *
-*  \author    Bob Builder
-*  \copyright 2012 Hirschmann Automation & Control GmbH
-*
-*  \version 1 Created on: 20.04.2012
+*  \version 1 Created on: 03/07/2018
 *
 *//**************************** FILE HEADER *********************************/
 
@@ -28,7 +26,6 @@
 #define DBG_ON
 #define MAX_DATA_SIZE	100
 
-#define SHDMEM_FILEPATH	"/tmp/ex3/mmapped.bin"
 #define SHDMEM_FILEPATH		"/tmp/ex3/mmapped.bin"
 #define SEM_FILE_DATA		"/OIT_ex3_data_sem"
 #define SEM_FILE_WRPRIORITY	"/OIT_ex3_wrpriority_sem"
@@ -43,8 +40,7 @@
 #ifdef DBG_ON
 
 #define DBGPRINT(str) {\
-	fprintf(stdout, str); \
-}
+	fprintf(stdout, str);}
 
 #endif // DBG_ON
 

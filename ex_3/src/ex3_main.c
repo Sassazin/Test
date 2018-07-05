@@ -32,7 +32,7 @@
  * Defines
  *****************************************************************************/
 #define NB_PROCS		3
-#define CHILD_FILEPATH		"./ex3_child.exe"
+#define CHILD_FILEPATH	"./ex3_child.exe"
 
 #define SEM_PERM		0777
 
@@ -54,14 +54,22 @@ int main (int argc, char* argv[])
 	int fd;
 
 	int i;
+	char logfile[32];
 	
 	u_int8_t data[MAX_DATA_SIZE];
 	sem_t* data_sem;
 	sem_t* wrpriority_sem;
 	sem_t* rdmutex_sem;
 
+
 	
-	DBGPRINT("Initializing...\n");
+	DBGPRINT("Creating own logfile...");
+	
+	sprintf(logfile,"./logs/parent.log");
+	if ( freopen(logfile, "w", stdout) == NULL )
+		FATAL_ERROR("Error opening/creating logfile (parent)");
+	
+	DBGPRINT("Initializing...\n");	
 	
 	if ( sem_unlink(SEM_FILE_DATA) == -1 ) 
 		if ( errno != ENOENT )
@@ -105,13 +113,13 @@ int main (int argc, char* argv[])
 		pids[i] = fork();
 				 
 		if ( pids[i] == 0 )
-			if ( execvp("./ex3_child.exe",argv) == -1 )
+			if ( execl("./ex3_child.exe", NULL) == -1 )
 				FATAL_ERROR("Error execvp");
 	}
 	
-	
 	DBGPRINT("Forks successful. Starting core functionality...\n");
 	
+	srand(time(NULL));
 	while (1)
 	{
 		DBGPRINT("Going to sleep.\n");
@@ -119,10 +127,7 @@ int main (int argc, char* argv[])
 		
 		DBGPRINT("Wake up.\nGenerating random data...\n");
 		for ( i = 0; i < MAX_DATA_SIZE; i++ )
-		{
-			srandom(time(NULL));
-			data[i] = (u_int8_t) random();
-		}
+			data[i] = (u_int8_t) rand();
 		
 		
 		DBGPRINT("Waiting for access...\n");
@@ -130,7 +135,7 @@ int main (int argc, char* argv[])
 		
 		sem_wait(data_sem);
 		DBGPRINT("Writing data...\n");
-		write(fd, data, MAX_DATA_SIZE);	
+		write(fd, data, MAX_DATA_SIZE);
 		sem_post(data_sem);
 		
 		sem_post(wrpriority_sem);

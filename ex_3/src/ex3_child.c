@@ -56,19 +56,19 @@ int main ()
 	sigset_t set;
 	
 	char logfile[32];
-	
-	
-	DBGPRINT("Initializing...\n");
+
 	
 	readercount = 0;
 	
 	sprintf(logfile,"./logs/%d.log",getpid());
-	if ( freopen(logfile, "w", stdout) == NULL )
-		FATAL_ERROR("Error opening/creating logfile");
+	if ( freopen(logfile, "wt", stdout) == NULL )
+		FATAL_ERROR("Error opening/creating logfile (child)");
+	
 	
 	fd = open(SHDMEM_FILEPATH, O_RDONLY);
 	if ( fd == -1 )
 		FATAL_ERROR("Error opening shmem (child)");
+	
 	
 	mmap( NULL, MAX_DATA_SIZE, PROT_READ, MAP_SHARED, fd, 0 );
 	
@@ -83,16 +83,19 @@ int main ()
 	if ( data_sem 		== SEM_FAILED )	FATAL_ERROR("Error opening semaphore [data_sem] (child)");
 	if ( rdmutex_sem	== SEM_FAILED )	FATAL_ERROR("Error opening semaphore [rdmutex_sem] (child)");
 	if ( wrpriority_sem == SEM_FAILED )	FATAL_ERROR("Error opening semaphore [wrpriority_sem] (child)");
+
+	DBGPRINT("Starting main functionality.\n");
 	
-	
-	DBGPRINT("Starting main functionality.\n")
 	
 	while (1)
 	{
+		DBGPRINT("Waiting for signal...");
+		
 		sigprocmask(SIG_UNBLOCK, &set, NULL);
 		if ( sigwait(&set,&sig) > 0 )	FATAL_ERROR("sigwait error");
 		sigprocmask(SIG_BLOCK, &set, NULL);
 		
+		DBGPRINT ("Signal received. Waiting for access...");
 		
 		sem_wait(rdmutex_sem);
 		sem_wait(wrpriority_sem);
@@ -104,6 +107,8 @@ int main ()
 		sem_post(wrpriority_sem);
 		sem_post(rdmutex_sem);
 		
+		DBGPRINT("Reading data...");
+		
 		read(fd, data, MAX_DATA_SIZE);
 		
 		sem_wait(rdmutex_sem);
@@ -112,9 +117,7 @@ int main ()
 			sem_post(data_sem);
 		sem_post(rdmutex_sem);
 		
-		DBGPRINT("DATA:: ");
 		fwrite(data, sizeof(u_int8_t), MAX_DATA_SIZE, stdout);
-		DBGPRINT(" ::END\n");
 	}
 	
 	return 0;
