@@ -22,6 +22,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <semaphore.h>
+#include <stdlib.h>
+#include <time.h>
 
 #include "../h/coreutils.h"
 
@@ -55,16 +57,19 @@ int main (int argc, char** argv)
 	
 	sigset_t set;
 	
-	char logfile[32];
+	char logfilename[32];
+	FILE* logfile;
 
 	
 	readercount = 0;
+	srand(time(NULL));
 	
-	/*
-	sprintf(logfile,"./logs/%d.log",getpid());
-	if ( freopen(logfile, "wt", stdout) == NULL )
+	sprintf(logfilename,"./logs/%d_%d.log",getpid(),rand()%100);
+	if ( (logfile = fopen(logfilename, "w")) == NULL )
 		FATAL_ERROR("Error opening/creating logfile (child)");
-	*/
+	
+	
+	DBGPRINT("Initializing...\n");
 	
 	fd = open(SHDMEM_FILEPATH, O_RDONLY);
 	if ( fd == -1 )
@@ -77,22 +82,23 @@ int main (int argc, char** argv)
 	sigaddset(&set, SIGUSR1);
 	sigprocmask(SIG_BLOCK, &set, NULL);
 	
-	data_sem		= 	sem_open(SEM_FILE_DATA		, O_CREAT, SEM_PERM, 1);
-	rdmutex_sem		= 	sem_open(SEM_FILE_RDMUTEX	, O_CREAT, SEM_PERM, 1);
-	wrpriority_sem 	= 	sem_open(SEM_FILE_WRPRIORITY, O_CREAT, SEM_PERM, 1);
+	data_sem		= 	sem_open( SEM_FILE_DATA		 , O_CREAT, SEM_PERM, 1);
+	rdmutex_sem		= 	sem_open( SEM_FILE_RDMUTEX	 , O_CREAT, SEM_PERM, 1);
+	wrpriority_sem 	= 	sem_open( SEM_FILE_WRPRIORITY, O_CREAT, SEM_PERM, 1);
 
 	if ( data_sem 		== SEM_FAILED )	FATAL_ERROR("Error opening semaphore [data_sem] (child)");
 	if ( rdmutex_sem	== SEM_FAILED )	FATAL_ERROR("Error opening semaphore [rdmutex_sem] (child)");
 	if ( wrpriority_sem == SEM_FAILED )	FATAL_ERROR("Error opening semaphore [wrpriority_sem] (child)");
 
 	
+	DBGPRINT("Starting core functionality...\n");
+	fflush(logfile);
+	
 	while (1)
 	{
 		DBGPRINT("Waiting for signal...\n");
 		
-		//sigprocmask(SIG_UNBLOCK, &set, NULL);
 		if ( sigwait(&set,&sig) > 0 )	FATAL_ERROR("sigwait error");
-		//sigprocmask(SIG_BLOCK, &set, NULL);
 		
 		DBGPRINT ("Signal received. Waiting for access...\n");
 		
@@ -124,9 +130,10 @@ int main (int argc, char** argv)
 		if ( readercount == 0 )
 			sem_post(data_sem);
 		
-		
-		fwrite(data, sizeof(u_int8_t), MAX_DATA_SIZE, stdout);
+		data[MAX_DATA_SIZE-1] = '\n'; 
+		fwrite(data, sizeof(u_int8_t), MAX_DATA_SIZE, logfile);
 		DBGPRINT("Done.\n");
+		fflush(logfile);
 	}
 	
 	return 0;

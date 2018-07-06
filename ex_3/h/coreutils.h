@@ -40,7 +40,7 @@
 #ifdef DBG_ON
 
 #define DBGPRINT(str) {\
-	fprintf(stdout,"%d|" str,getpid());}
+	fprintf(logfile,"%d|" str,getpid());}
 
 #endif // DBG_ON
 
