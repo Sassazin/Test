@@ -38,7 +38,7 @@
 #define PIPEIN		0
 #define PIPEOUT		1
 
-#define LOGFILE 	"/home/oiteodorescu/WindRiver/Workspace/ex2.log"
+#define LOGFILE 	"./log.txt"
 
 
 /*****************************************************************************
@@ -115,8 +115,7 @@ int main (int argc, char** argv)
 		switch (c)
 		{
 			case 'n':
-				printf("%s",optarg);
-				sscanf(optarg,"%d",&nproc);
+				sscanf( optarg, "%d", &nproc);
 				break;
 				
 			case '?':
@@ -134,12 +133,10 @@ int main (int argc, char** argv)
 				break;
 				
 			default:
-				fprintf(stderr,"Error reading cmdline args (defaulted case) : c = %d\n",c);
-				return -1;
+				continue;
 		}
 		
 	} while ( c != -1 );
-	
 	
 
 	for ( i = 0; i < nproc; i++ )
@@ -191,7 +188,7 @@ int main (int argc, char** argv)
 				fprintf(stderr,"Error fetching time. Attempting again...\n");
 				sleep(1);
 				
-				if (timespec_get(&ts, TIME_UTC) == 0) fprintf("Failed to fetch time. Using default seed.\n");
+				if (timespec_get(&ts, TIME_UTC) == 0) fprintf(stderr,"Failed to fetch time. Using default seed.\n");
 					srandom(getpid());
 			}
 			else
