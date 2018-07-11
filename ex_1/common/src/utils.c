@@ -18,7 +18,7 @@
 #include "../h/utils.h"
 
  
- 
+ // See header for details.
  int isprime (int number)
  {
  	int i;
