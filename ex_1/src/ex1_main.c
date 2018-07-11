@@ -3,7 +3,14 @@
 *  \file      ex1_main.c
 *
 *  \brief    "multiple threads producer-consumer" exercise
-*   
+*
+*	The program spawns 4 threads:
+*	
+*	> one thread which generates N random numbers every GEN_TIME seconds and puts them into a shared buffer
+*	> three threads which read from the buffer, 'consuming' the numbers in the process, and output
+*	if the number is prime or not
+*	
+*  \note The generation doesn't happen every GEN_TIME, rather GEN_TIME is just the amount of time the producer sleeps every round. 
 *
 *  \author    Octav Teodorescu
 *  \copyright 2018 Luxoft Romania
@@ -24,22 +31,31 @@
 #include <sys/syscall.h>
 #include <semaphore.h>
 #include <fcntl.h>
-
-#include "../h/ex1_main.h"
+#include <errno.h>
+#include <string.h>
 
 
 /*****************************************************************************
  * Defines
  *****************************************************************************/
-#define NTHREADS	3 
+#define NTHREADS	3 					// number of reader threads to generate
 #define GEN_TIME_MS	100
-#define GEN_TIME	GEN_TIME_MS/1000
+#define GEN_TIME	GEN_TIME_MS/1000	// sleeping time (seconds) for producer thread
 
-#define MAX_NUMBERS	1000
-#define MIN_NUMBERS	100
+#define MAX_NUMBERS	1000				// maximum amount of numbers generated each round
+#define MIN_NUMBERS	100					// minimum amount of numbers generated each round
 
-#define FATAL_ERROR(err) perror(err);\
-	return -1
+#define SEM_FULL	"/OIT_ex1_full_sem"  // Standard producer-consumer problem
+#define SEM_EMPTY	"/OIT_ex1_empty_sem" // 	see https://en.wikipedia.org/wiki/Producer%E2%80%93consumer_problem
+#define SEM_DATA	"/OIT_ex1_data_sem"  // 	for details regarding the algorithm
+
+
+#define FATAL_ERROR(err) { \
+	fprintf(stderr,"%d |" err "\t%s\n", getpid(), strerror(errno)); \
+return -1;}
+
+#define DBGPRINT(str) {\
+fprintf(stdout,"%ld|" str,syscall(SYS_gettid));}
 
 
 /*****************************************************************************
@@ -69,8 +85,9 @@ typedef struct shared_data
 /*****************************************************************************
  * Functions
  *****************************************************************************/
-void* read_numbers(void*);
-void* generate_numbers(void*);
+void* read_numbers		(void*);
+void* generate_numbers	(void*);
+
 
 
 int main ()
@@ -81,26 +98,45 @@ int main ()
 	int i;
 	
 	
-	data->N = 0;
+	data.N = 0;
 	for ( i = 0; i < MAX_NUMBERS; i++ )
-		data->numbers[i] = 0;
+		data.numbers[i] = 0;
 	
-	full_sem		= sem_open("/OIT_ex1_full_sem",		 O_CREAT, O_RDWR, 0);
-	empty_sem 		= sem_open("/OIT_ex1_empty_sem", 	 O_CREAT, O_RDWR, 0);
-	data_sem 		= sem_open("/OIT_ex1_data_sem", O_CREAT, O_RDWR, 0);
+	// Initialize semaphores:
+	// empty_sem	-> number of empty slots in the data buffer
+	// full_sem		-> number of filled slots
+	// data_sem		-> data access mutex
+	if ( sem_unlink(SEM_FULL) == -1 )  
+		if ( errno != ENOENT )
+			FATAL_ERROR("Error cleaning semaphore [full_sem]");
 	
-	if ( empty_sem 	== SEM_FAILED ) 	FATAL_ERROR("Error opening empty_sem");
-	if ( full_sem  	== SEM_FAILED ) 	FATAL_ERROR("Error opening full_sem");
-	if ( data_sem  == SEM_FAILED ) FATAL_ERROR("Error opening datamutex_sem");
+	if ( sem_unlink(SEM_EMPTY) == -1 ) 
+		if ( errno != ENOENT )
+			FATAL_ERROR("Error cleaning semaphore [empty_sem]");
+	
+	if ( sem_unlink(SEM_DATA) == -1 ) 
+		if ( errno != ENOENT )
+			FATAL_ERROR("Error cleaning semaphore [data_sem]");
+	
+	full_sem		= sem_open(SEM_FULL,  O_CREAT | O_EXCL, O_RDWR,		 0		);
+	data_sem 		= sem_open(SEM_DATA,  O_CREAT | O_EXCL, O_RDWR,		 1		);
+	empty_sem 		= sem_open(SEM_EMPTY, O_CREAT | O_EXCL, O_RDWR, MAX_NUMBERS );
+	
+	if ( empty_sem == SEM_FAILED ) 	FATAL_ERROR("Error opening empty_sem");
+	if ( full_sem  == SEM_FAILED ) 	FATAL_ERROR("Error opening full_sem");
+	if ( data_sem  == SEM_FAILED ) 	FATAL_ERROR("Error opening datamutex_sem");
 	
 	
-	if ( !pthread_create( &thd, NULL, &generate_numbers, &data) )
+	// Spawn threads
+	if ( pthread_create( &thd, NULL, &generate_numbers, &data) != 0 )
 		FATAL_ERROR("Failed to create thread (generator)");
-	
+
 	for ( i = 0; i < NTHREADS; i++ )
-		if ( !pthread_create( &thd, NULL, &read_numbers, &data) )
+		if ( pthread_create( &thd, NULL, &read_numbers, &data) != 0 )
 			FATAL_ERROR("Failed to create thread (read)");
+
 	
+	// Main thread has to be kept alive artificially. 
 	while(1);
 		
 	return 0;
@@ -135,7 +171,6 @@ void* read_numbers (void* arg)
 void* generate_numbers (void* arg)
 {
 	shared_data_t* data = (shared_data_t*)(arg);
-	int i;
 	int N = MAX_NUMBERS;
 	
 	srand(time(NULL));
