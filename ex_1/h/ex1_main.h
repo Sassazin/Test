@@ -15,10 +15,10 @@
 /*****************************************************************************
  * Defines
  *****************************************************************************/
-#ifndef FATAL_ERROR(err)
+#ifndef FATAL_ERROR
 	#define FATAL_ERROR(err) perror(err);\
 		return -1
 #endif
 
 
-#endif EX1_MAIN_H_
+#endif // EX1_MAIN_H_
