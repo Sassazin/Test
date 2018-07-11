@@ -4,6 +4,9 @@
 *
 *  \brief     Shared resource exercise; parent process source.
 *  
+*  Generates logs which respect the following name convention: [PID]_[random seed].log (helps avoid overwriting)
+*  
+*  
 *  \note	  The synchronization problem is a variant of the reader-writer
 *  			  problem. See https://en.wikipedia.org/wiki/Readers%E2%80%93writers_problem
 *
@@ -66,7 +69,6 @@ int main (int argc, char* argv[])
 	sem_t* data_sem;	// mutex for data R/W
 	sem_t* wrpriority_sem;	// prevents starvation for writer 
 							//(not possible in this implementation - if requirements change may become necessary)
-	sem_t* rdmutex_sem;	// mutex for readercount
 	
 	
 	
@@ -76,8 +78,6 @@ int main (int argc, char* argv[])
 	if ( (logfile = fopen(logfilename, "w")) == NULL )
 		FATAL_ERROR("Error opening/creating logfile (parent)");
 	
-	
-	DBGPRINT("Initializing...\n");
 	
 	if ( sem_unlink(SEM_FILE_DATA) == -1 )  
 		if ( errno != ENOENT )
@@ -110,8 +110,6 @@ int main (int argc, char* argv[])
 	
 	
 	
-	DBGPRINT("Spawning children...\n");
-	
 	for ( i = 0; i < NB_PROCS; i++ )
 	{
 		pids[i] = fork();
@@ -121,31 +119,25 @@ int main (int argc, char* argv[])
 				FATAL_ERROR("Error execvp");
 	}
 	
-	
-	DBGPRINT("Forks successful. Starting core functionality...\n");
 	fflush(logfile);
 	
 	while (1)
 	{
-		DBGPRINT("Going to sleep.\n");
 		sleep(1);
 		
-		DBGPRINT("Generating random data...\n");
 		for ( i = 0; i < MAX_DATA_SIZE; i++ )
 			data[i] = (u_int8_t) rand();
 		
 		
-		DBGPRINT("Waiting for access...\n");
 		sem_wait(wrpriority_sem);
 		
 		sem_wait(data_sem);
-		DBGPRINT("Writing data...\n");
 		write(shm_fd, data, MAX_DATA_SIZE);
 		sem_post(data_sem);
 		
 		sem_post(wrpriority_sem);
 		
-		DBGPRINT("Signaling children...\n");
+		
 		for ( i = 0; i < NB_PROCS; i++ )
 			kill ( pids[i], SIGUSR1 );
 		
