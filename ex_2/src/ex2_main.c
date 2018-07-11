@@ -62,7 +62,7 @@ typedef struct child_pipe_message_t
  *************************************************************************//**
  *  \brief              Checks the primality of a given integer.
  *  
- *  					No error handling - might break for large input numbers! (TODO: check & fix)
+ *  					No error handling - might break for large input numbers!
  *  					
  *  \note               Implements 6k1 algorithm. See https://en.wikipedia.org/wiki/Primality_test
  * 
@@ -88,6 +88,7 @@ int isprime (int number)
 }
 
 
+
 int main (int argc, char** argv)
 {
 
@@ -102,12 +103,10 @@ int main (int argc, char** argv)
 	child_pipe_message_t msg;
 	
 	FILE* logf;
+
 	
 	opterr = 0;
-	
-	//////////////////////////////
-	
-	// used getopt for scalability and easy err handling
+	// used getopt to parse user input for scalability and easy err handling
 	do
 	{
 		c = getopt(argc,argv,"n:");
@@ -138,7 +137,8 @@ int main (int argc, char** argv)
 		
 	} while ( c != -1 );
 	
-
+	
+	// TODO: this is an older variant of error handling. Update for cleaner code
 	for ( i = 0; i < nproc; i++ )
 	{
 		if ( pipe( pipefds[i] ) == -1 )
@@ -182,6 +182,7 @@ int main (int argc, char** argv)
 		while (1)
 		{
 			// Used for true randomness; see SEI CERT C Coding Standard 2016: MSC30-C
+				// UPDATE: it works worse than the usual rand(); the numbers are not random enough (TODO: check wtf is going on)
 			struct timespec ts;
 			
 			if (timespec_get(&ts, TIME_UTC) == 0) {
@@ -213,23 +214,25 @@ int main (int argc, char** argv)
 			}
 		}
 	}
-	else
+	else	// child process
 	{
 		logf = fopen(LOGFILE, "wt");
 		if ( logf == NULL )
+		{
 			fprintf(stderr,"Error opening logfile. Printing to stdout.");
+			logf = stdout;
+		}
 
 		
+		// Iterate through all the pipes until a message is read from each one
 		while (1)
 		{
 			for ( i = 0; i < nproc; i++ )
 			{
 				if ( read( pipefds[i][PIPEIN], &msg, sizeof(msg) ) != 0 )
 				{
-					if ( logf != NULL )	
-						fprintf( logf, "%d %d\n", msg.pid, msg.number );
-					else
-						fprintf( stdout, "%d %d\n", msg.pid, msg.number );
+					
+					fprintf( logf, "%d %d\n", msg.pid, msg.number );
 					
 					if ( close( pipefds[i][PIPEIN] ) == -1 )
 					{
@@ -237,6 +240,7 @@ int main (int argc, char** argv)
 						return -1;
 					}
 					
+					// eliminate the closed pipe from pipefds
 					memcpy( pipefds[i], pipefds[nproc-1], sizeof(pipefds[i]) );
 					nproc--;
 				}
@@ -246,8 +250,7 @@ int main (int argc, char** argv)
 				break;
 		}
 		
-		if ( logf != NULL )
-			fclose(logf);
+		fclose(logf);
 	}
 	
 }
