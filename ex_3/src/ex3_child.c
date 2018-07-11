@@ -61,6 +61,7 @@ int main (int argc, char** argv)
 	FILE* logfile;
 
 	
+	
 	readercount = 0;
 	srand(time(NULL));
 	
@@ -68,8 +69,6 @@ int main (int argc, char** argv)
 	if ( (logfile = fopen(logfilename, "w")) == NULL )
 		FATAL_ERROR("Error opening/creating logfile (child)");
 	
-	
-	DBGPRINT("Initializing...\n");
 	
 	fd = open(SHDMEM_FILEPATH, O_RDONLY);
 	if ( fd == -1 )
@@ -91,48 +90,33 @@ int main (int argc, char** argv)
 	if ( wrpriority_sem == SEM_FAILED )	FATAL_ERROR("Error opening semaphore [wrpriority_sem] (child)");
 
 	
-	DBGPRINT("Starting core functionality...\n");
-	fflush(logfile);
 	
 	while (1)
 	{
-		DBGPRINT("Waiting for signal...\n");
-		
 		if ( sigwait(&set,&sig) > 0 )	FATAL_ERROR("sigwait error");
-		
-		DBGPRINT ("Signal received. Waiting for access...\n");
 		
 		sem_wait(wrpriority_sem);
 		
-		DBGPRINT("Accessing entry zone...\n");
-		
 		sem_wait(rdmutex_sem);
-		DBGPRINT("In entry zone...\n");
 		readercount++;
 		sem_post(rdmutex_sem);
 		
 		if ( readercount == 1 )
 			sem_wait(data_sem);
 		
-		DBGPRINT("Exiting entry zone...\n");
 		sem_post(wrpriority_sem);
-		
-		
-		DBGPRINT("Reading data...\n");
 		
 		read(fd, data, MAX_DATA_SIZE);
 		
-		DBGPRINT("Accessing exit zone...\n");
 		sem_wait(rdmutex_sem);
-		DBGPRINT("In exit zone...\n");
 		readercount--;
 		sem_post(rdmutex_sem);
 		if ( readercount == 0 )
 			sem_post(data_sem);
 		
-		data[MAX_DATA_SIZE-1] = '\n'; 
+		data[MAX_DATA_SIZE-1] = '\n';	// for easier debug printing
+		
 		fwrite(data, sizeof(u_int8_t), MAX_DATA_SIZE, logfile);
-		DBGPRINT("Done.\n");
 		fflush(logfile);
 	}
 	

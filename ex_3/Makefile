@@ -1,10 +1,24 @@
-all :
-	rm -f *.exe 
-	rm -rf ./logs
-	mkdir logs
-	gcc -Wtype-limits -Wcast-align -Wstrict-overflow -Wformat-security -Wformat -Wstrict-aliasing=3 -Wall -Wcast-align -lpthread -o ex3.exe ./src/ex3_main.c
-	gcc -g -Wtype-limits -Wcast-align -Wstrict-overflow -Wformat-security -Wformat -Wstrict-aliasing=3 -Wall -Wcast-align -lpthread -o ex3_child.exe ./src/ex3_child.c
-	@echo "make: built targets"
+CC = gcc
 
+LDLIBS = -lpthread
+
+CFLAGS = -Wtype-limits
+CFLAGS += -Wcast-align
+CFLAGS += -Wstrict-overflow
+CFLAGS += -Wformat-security
+CFLAGS += -Wformat
+CFLAGS += -Wstrict-aliasing=3
+CFLAGS += -Wall
+CFLAGS += -Wcast-align
+
+SRC 	= ./src/ex3_main.c
+SRC_CH	= ./src/ex3_child.c 
+
+all :
+	@mkdir logs
+	$(CC) $(CFLAGS) $(LDLIBS) -o ex3.exe $(SRC)
+	$(CC) $(CFLAGS) $(LDLIBS) -o ex3_child.exe $(SRC_CH)
+	
 clean :
-	@echo "make: removing targets and objects of `pwd`"
+	@rm -f *.exe 
+	@rm -rf ./logs
